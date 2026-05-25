@@ -58,6 +58,8 @@ curl http://localhost:3000/health
 ## WebSocket
 Default WebSocket port: `WS_PORT` (default 3001)
 
+JWT auth can run in symmetric mode with `AUTH_JWT_SECRET` or asymmetric mode with `AUTH_JWT_VALIDATION_MODE=asymmetric` plus `AUTH_JWT_JWKS_URL`.
+
 ## What's Next (Future Enhancements)
 
 Potential future phases:

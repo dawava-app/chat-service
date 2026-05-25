@@ -20,8 +20,10 @@ curl http://localhost:3000/health
 If you use external MongoDB/Redis, omit the profile and set `MONGODB_URI` and `REDIS_URL`.
 
 ## Step 2: Configure Authentication
-- `AUTH_JWT_SECRET` must match the master service JWT secret.
+- `AUTH_JWT_VALIDATION_MODE=symmetric` uses the shared `AUTH_JWT_SECRET`.
+- `AUTH_JWT_VALIDATION_MODE=asymmetric` requires `AUTH_JWT_JWKS_URL` and uses the master service JWKS.
 - `AUTH_JWT_ISSUER` should match the token issuer.
+- `AUTH_JWT_AUDIENCE` should match the token audience when one is issued.
 - Set `INTERNAL_API_SECRET` for server-to-server calls.
 - Include `externalUserId` as a non-empty string in JWT payloads (recommended for both REST and WebSocket).
 - REST compatibility fallback: if `externalUserId` is missing, REST accepts `sub`, then `id` (must still be a non-empty string).
@@ -45,7 +47,7 @@ Frontend connects directly to Chat Service WS:
 ```
 ws://chat.example.com
 ```
-Use `auth.token` in the Socket.IO handshake.
+Use `auth.token` in the Socket.IO handshake. The gateway also accepts `query.token` and `Authorization: Bearer <token>` for Node clients.
 
 ## Step 6: Handle Webhooks
 Configure:

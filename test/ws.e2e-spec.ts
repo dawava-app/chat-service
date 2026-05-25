@@ -62,11 +62,25 @@ describe('WebSocket gateway (e2e)', () => {
     return socket;
   };
 
-  const connectSocket = (token: string) =>
+  type SocketHandshake = {
+    auth?: Record<string, unknown>;
+    query?: Record<string, string>;
+    extraHeaders?: Record<string, string>;
+  };
+
+  const connectSocketWithHandshake = (handshake: SocketHandshake) =>
     new Promise<Socket>((resolve, reject) => {
       const socket = trackSocket(
         io(`http://localhost:${wsPort}`, {
-          auth: { token },
+          auth: handshake.auth,
+          query: handshake.query,
+          transportOptions: handshake.extraHeaders
+            ? {
+                websocket: {
+                  extraHeaders: handshake.extraHeaders,
+                },
+              }
+            : undefined,
           transports: ['websocket'],
           reconnection: false,
         }),
@@ -87,6 +101,8 @@ describe('WebSocket gateway (e2e)', () => {
         reject(err);
       });
     });
+
+  const connectSocket = (token: string) => connectSocketWithHandshake({ auth: { token } });
 
   const waitForEvent = <T>(socket: Socket, event: string, timeoutMs = 5000) =>
     new Promise<T>((resolve, reject) => {
@@ -214,6 +230,20 @@ describe('WebSocket gateway (e2e)', () => {
 
     expect(error.code).toBe('UNAUTHORIZED');
     badSocket.disconnect();
+  });
+
+  it('accepts query tokens and authorization headers during handshake', async () => {
+    const querySocket = await connectSocketWithHandshake({
+      query: { token: signToken(USER_1.externalUserId) },
+    });
+    expect(querySocket.connected).toBe(true);
+    querySocket.disconnect();
+
+    const headerSocket = await connectSocketWithHandshake({
+      extraHeaders: { authorization: `Bearer ${signToken(USER_2.externalUserId)}` },
+    });
+    expect(headerSocket.connected).toBe(true);
+    headerSocket.disconnect();
   });
 
   it('broadcasts message:new on websocket send and REST send', async () => {

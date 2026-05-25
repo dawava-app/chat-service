@@ -463,8 +463,12 @@ Document each event type with:
 **Authentication:**
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| AUTH_JWT_SECRET | Yes | - | JWT signing secret (shared with host) |
+| AUTH_JWT_VALIDATION_MODE | No | symmetric | JWT validation mode (`symmetric` or `asymmetric`) |
+| AUTH_JWT_SECRET | Yes* | - | JWT signing secret for symmetric validation |
 | AUTH_JWT_ISSUER | No | - | Expected JWT issuer |
+| AUTH_JWT_AUDIENCE | No | - | Expected JWT audience |
+| AUTH_JWT_JWKS_URL | No* | - | JWKS endpoint for asymmetric validation |
+| AUTH_JWT_JWKS_CACHE_TTL_MS | No | 300000 | JWKS cache TTL in milliseconds |
 | INTERNAL_API_SECRET | Yes | - | Secret for internal API calls |
 
 **Webhooks:**
@@ -984,11 +988,19 @@ REDIS_URL=redis://localhost:6379
 # --------------------------------------------
 # Authentication
 # --------------------------------------------
-# JWT secret (MUST match your host service)
+# Symmetric mode (default): set the shared JWT secret
 AUTH_JWT_SECRET=your-jwt-secret-here
+
+# Set to asymmetric when validating against JWKS
+# AUTH_JWT_VALIDATION_MODE=asymmetric
+# AUTH_JWT_JWKS_URL=https://portal-gateway/.well-known/jwks.json
+# AUTH_JWT_JWKS_CACHE_TTL_MS=300000
 
 # Expected JWT issuer (optional)
 AUTH_JWT_ISSUER=your-service
+
+# Expected JWT audience (optional)
+AUTH_JWT_AUDIENCE=
 
 # Secret for internal API calls (user sync, admin)
 INTERNAL_API_SECRET=your-internal-secret-here

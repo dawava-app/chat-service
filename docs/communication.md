@@ -173,7 +173,7 @@ Payload format:
 
 ## Authentication Summary
 
-- REST and WS use the same JWT secret (`AUTH_JWT_SECRET`) shared with Master Service.
+- REST and WS use the same JWT validation config shared with Master Service (`AUTH_JWT_SECRET` in symmetric mode, or `AUTH_JWT_JWKS_URL` in asymmetric mode).
 - Internal API uses `INTERNAL_API_SECRET`.
 - Webhooks are signed with `WEBHOOK_SECRET`.
 
