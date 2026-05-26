@@ -78,7 +78,9 @@ Create direct or group conversation.
 Response includes `metadata` field.
 
 ### GET /conversations
-Query params: `limit`, `cursor`, `type`.
+Query params: `limit`, `cursor`, `type`, `with`.
+
+`with` accepts one or more participant user ids and filters conversations that include any of them.
 
 ### GET /conversations/:id
 ### DELETE /conversations/:id

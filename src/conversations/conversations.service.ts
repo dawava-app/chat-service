@@ -120,6 +120,13 @@ export class ConversationsService {
       filter.type = query.type;
     }
 
+    if (query.with?.length) {
+      const participantIds = [...new Set(query.with)].filter((participantId) => participantId !== userId);
+      if (participantIds.length) {
+        filter.participantIds = { $in: participantIds };
+      }
+    }
+
     if (query.cursor) {
       const cursor = this.decodeCursor(query.cursor);
       const cursorDate = new Date(cursor.updatedAt);

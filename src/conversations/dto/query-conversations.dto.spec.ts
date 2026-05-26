@@ -36,4 +36,15 @@ describe('QueryConversationsDto', () => {
 
     expect(errors.length).toBeGreaterThan(0);
   });
+
+  it('parses participant filters from arrays and comma-separated values', async () => {
+    const dto = plainToInstance(QueryConversationsDto, {
+      with: ['user-2', 'user-3'],
+    });
+
+    const errors = await validate(dto);
+
+    expect(errors).toHaveLength(0);
+    expect(dto.with).toEqual(['user-2', 'user-3']);
+  });
 });

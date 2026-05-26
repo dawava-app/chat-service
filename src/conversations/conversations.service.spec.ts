@@ -200,4 +200,31 @@ describe('ConversationsService', () => {
     expect(result.pagination.nextCursor).toBeTruthy();
     expect(result.data).toHaveLength(2);
   });
+
+  it('filters conversations by participant ids', async () => {
+    const model = createModel();
+    const service = createService(model);
+
+    const queryChain = {
+      sort: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue([]),
+    };
+
+    model.find.mockReturnValue(queryChain);
+
+    await service.findAllForUser('user-1', {
+      limit: 10,
+      type: ConversationType.Direct,
+      with: ['user-2', 'user-3'],
+    } as any);
+
+    expect(model.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        'participants.externalUserId': 'user-1',
+        type: ConversationType.Direct,
+        participantIds: { $in: ['user-2', 'user-3'] },
+      }),
+    );
+  });
 });
