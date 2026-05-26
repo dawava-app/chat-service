@@ -33,7 +33,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         void this.jwtVerificationService
           .resolveVerificationSecret(rawJwtToken)
           .then((secret) => done(null, secret))
-          .catch((error) => done(error as Error, null));
+          .catch((error) => done(error as Error, undefined));
       },
       ...(issuer ? { issuer } : {}),
     });
