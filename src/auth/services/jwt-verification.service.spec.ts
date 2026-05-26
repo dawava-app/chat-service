@@ -1,6 +1,7 @@
 import { UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
+import Redis from 'ioredis';
 import { createPublicKey } from 'node:crypto';
 import { JwtVerificationService } from './jwt-verification.service';
 
@@ -27,6 +28,13 @@ describe('JwtVerificationService', () => {
       decode: jest.fn(),
       verifyAsync: jest.fn(),
     }) as unknown as JwtService;
+
+  const makeRedisClient = () =>
+    ({
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+    }) as unknown as Redis;
 
   afterEach(() => {
     jest.restoreAllMocks();
@@ -93,6 +101,96 @@ describe('JwtVerificationService', () => {
       expect.objectContaining({
         headers: { accept: 'application/json' },
       }),
+    );
+    expect(jwtService.verifyAsync).toHaveBeenCalledWith(
+      'token',
+      expect.objectContaining({
+        secret: 'pem-public-key',
+        algorithms: ['RS256'],
+      }),
+    );
+  });
+
+  it('reads cached jwks values from redis before fetching', async () => {
+    const jwtService = makeJwtService();
+    (jwtService.decode as jest.Mock).mockReturnValue({
+      header: { kid: 'key-1' },
+    });
+    (jwtService.verifyAsync as jest.Mock).mockResolvedValue({ sub: 'user-1' });
+
+    const redisClient = makeRedisClient();
+    (redisClient.get as jest.Mock).mockResolvedValue(
+      JSON.stringify({
+        expiresAt: Date.now() + 60_000,
+        keys: [['key-1', 'redis-public-key']],
+      }),
+    );
+
+    const fetchSpy = jest.spyOn(globalThis, 'fetch');
+
+    const service = new JwtVerificationService(
+      makeConfigService({
+        'auth.jwtValidationMode': 'asymmetric',
+        'auth.jwtJwksUrl': 'https://portal-gateway/.well-known/jwks.json',
+        'auth.jwtJwksCacheTtlMs': 60_000,
+      }),
+      jwtService,
+      redisClient,
+    );
+
+    await expect(service.verifyToken<{ sub: string }>('token')).resolves.toEqual({ sub: 'user-1' });
+
+    expect(redisClient.get).toHaveBeenCalledWith('auth:jwks-cache');
+    expect(fetchSpy).not.toHaveBeenCalled();
+    expect(jwtService.verifyAsync).toHaveBeenCalledWith(
+      'token',
+      expect.objectContaining({
+        secret: 'redis-public-key',
+        algorithms: ['RS256'],
+      }),
+    );
+  });
+
+  it('writes fetched jwks values to redis after a cache miss', async () => {
+    const jwtService = makeJwtService();
+    (jwtService.decode as jest.Mock).mockReturnValue({
+      header: { kid: 'key-1' },
+    });
+    (jwtService.verifyAsync as jest.Mock).mockResolvedValue({ sub: 'user-1' });
+
+    const createPublicKeyMock = createPublicKey as jest.MockedFunction<typeof createPublicKey>;
+    createPublicKeyMock.mockReturnValue({
+      export: jest.fn().mockReturnValue('pem-public-key'),
+    } as never);
+
+    const redisClient = makeRedisClient();
+    (redisClient.get as jest.Mock).mockResolvedValue(null);
+
+    const fetchSpy = jest.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        keys: [{ kid: 'key-1', kty: 'RSA', n: 'n', e: 'AQAB' }],
+      }),
+    } as Response);
+
+    const service = new JwtVerificationService(
+      makeConfigService({
+        'auth.jwtValidationMode': 'asymmetric',
+        'auth.jwtJwksUrl': 'https://portal-gateway/.well-known/jwks.json',
+        'auth.jwtJwksCacheTtlMs': 60_000,
+      }),
+      jwtService,
+      redisClient,
+    );
+
+    await expect(service.verifyToken<{ sub: string }>('token')).resolves.toEqual({ sub: 'user-1' });
+
+    expect(fetchSpy).toHaveBeenCalledTimes(1);
+    expect(redisClient.set).toHaveBeenCalledWith(
+      'auth:jwks-cache',
+      expect.stringContaining('key-1'),
+      'PX',
+      expect.any(Number),
     );
     expect(jwtService.verifyAsync).toHaveBeenCalledWith(
       'token',

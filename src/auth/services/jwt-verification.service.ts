@@ -1,7 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createPublicKey } from 'node:crypto';
+import Redis from 'ioredis';
+import { REDIS_CLIENT } from '../../redis/redis.module';
 
 export type JwtValidationMode = 'symmetric' | 'asymmetric';
 
@@ -20,6 +22,13 @@ interface CachedJwks {
   keysByKid: Map<string, string>;
 }
 
+interface SerializedCachedJwks {
+  expiresAt: number;
+  keys: Array<[string, string]>;
+}
+
+const JWKS_CACHE_KEY = 'auth:jwks-cache';
+
 @Injectable()
 export class JwtVerificationService {
   private cachedJwks?: CachedJwks;
@@ -28,6 +37,9 @@ export class JwtVerificationService {
   constructor(
     private readonly configService: ConfigService,
     private readonly jwtService: JwtService,
+    @Optional()
+    @Inject(REDIS_CLIENT)
+    private readonly redisClient?: Redis,
   ) {}
 
   async verifyToken<T extends object>(token: string): Promise<T> {
@@ -82,7 +94,7 @@ export class JwtVerificationService {
     }
 
     if (!this.cachedJwksPromise) {
-      this.cachedJwksPromise = this.fetchJwks().finally(() => {
+      this.cachedJwksPromise = this.loadOrFetchJwks().finally(() => {
         this.cachedJwksPromise = undefined;
       });
     }
@@ -97,6 +109,76 @@ export class JwtVerificationService {
       }
 
       throw error;
+    }
+  }
+
+  private async loadOrFetchJwks(): Promise<CachedJwks> {
+    const cachedJwks = await this.readCachedJwks();
+    if (cachedJwks) {
+      return cachedJwks;
+    }
+
+    const jwks = await this.fetchJwks();
+    await this.writeCachedJwks(jwks);
+    return jwks;
+  }
+
+  private async readCachedJwks(): Promise<CachedJwks | undefined> {
+    if (!this.redisClient) {
+      return undefined;
+    }
+
+    try {
+      const cachedValue = await this.redisClient.get(JWKS_CACHE_KEY);
+      if (!cachedValue) {
+        return undefined;
+      }
+
+      const parsed = JSON.parse(cachedValue) as SerializedCachedJwks;
+      if (!parsed?.expiresAt || !Array.isArray(parsed.keys) || parsed.expiresAt <= Date.now()) {
+        await this.redisClient.del(JWKS_CACHE_KEY).catch(() => undefined);
+        return undefined;
+      }
+
+      const keysByKid = new Map<string, string>(
+        parsed.keys.filter(
+          (entry): entry is [string, string] =>
+            Array.isArray(entry) && typeof entry[0] === 'string' && typeof entry[1] === 'string',
+        ),
+      );
+
+      if (keysByKid.size === 0) {
+        return undefined;
+      }
+
+      return {
+        expiresAt: parsed.expiresAt,
+        keysByKid,
+      };
+    } catch {
+      return undefined;
+    }
+  }
+
+  private async writeCachedJwks(jwks: CachedJwks): Promise<void> {
+    if (!this.redisClient) {
+      return;
+    }
+
+    const ttlMs = jwks.expiresAt - Date.now();
+    if (ttlMs <= 0) {
+      return;
+    }
+
+    const payload: SerializedCachedJwks = {
+      expiresAt: jwks.expiresAt,
+      keys: Array.from(jwks.keysByKid.entries()),
+    };
+
+    try {
+      await this.redisClient.set(JWKS_CACHE_KEY, JSON.stringify(payload), 'PX', ttlMs);
+    } catch {
+      // Redis is an optimization; continue without failing auth if the cache write fails.
     }
   }
 

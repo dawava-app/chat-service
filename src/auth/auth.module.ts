@@ -5,9 +5,10 @@ import { InternalApiGuard } from './guards/internal-api.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtVerificationService } from './services/jwt-verification.service';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { RedisModule } from '../redis/redis.module';
 
 @Module({
-  imports: [PassportModule.register({ defaultStrategy: 'jwt' }), JwtModule.register({})],
+  imports: [PassportModule.register({ defaultStrategy: 'jwt' }), JwtModule.register({}), RedisModule],
   providers: [JwtStrategy, InternalApiGuard, JwtAuthGuard, JwtVerificationService],
   exports: [InternalApiGuard, JwtAuthGuard, JwtVerificationService],
 })
