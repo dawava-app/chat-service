@@ -38,6 +38,7 @@ export class PresenceController {
   }
 
   @Post('presence/batch')
+  @Authorize({ jwt: true, internal: true })
   @ApiOperation({ summary: 'Get presence for multiple users' })
   async getBatchPresence(@Body() dto: GetBatchPresenceDto) {
     const presences = await this.presenceService.getPresenceStatuses(dto.userIds);

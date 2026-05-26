@@ -49,6 +49,7 @@ export class ConversationsController {
   ) {}
 
   @Post()
+  @Authorize({ jwt: true, internal: true })
   @ApiOperation({ summary: 'Create a conversation' })
   async create(
     @CurrentUser() user: AuthenticatedUser,
@@ -81,6 +82,7 @@ export class ConversationsController {
   }
 
   @Delete(':id')
+  @Authorize({ jwt: true, internal: true })
   @ApiOperation({ summary: 'Leave or delete a conversation' })
   async remove(
     @CurrentUser() user: AuthenticatedUser,
@@ -112,6 +114,7 @@ export class ConversationsController {
   }
 
   @Post(':id/participants')
+  @Authorize({ jwt: true, internal: true })
   @ApiOperation({ summary: 'Add a participant to a conversation' })
   async addParticipant(
     @CurrentUser() user: AuthenticatedUser,
@@ -127,6 +130,7 @@ export class ConversationsController {
   }
 
   @Patch(':id/participants/:userId')
+  @Authorize({ jwt: true, internal: true })
   @ApiOperation({ summary: 'Update a participant role' })
   async updateParticipantRole(
     @CurrentUser() user: AuthenticatedUser,
@@ -144,6 +148,7 @@ export class ConversationsController {
   }
 
   @Delete(':id/participants/:userId')
+  @Authorize({ jwt: true, internal: true })
   @ApiOperation({ summary: 'Remove a participant from a conversation' })
   async removeParticipant(
     @CurrentUser() user: AuthenticatedUser,
