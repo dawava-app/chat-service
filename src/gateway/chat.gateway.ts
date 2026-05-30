@@ -438,19 +438,25 @@ export class ChatGateway
   }
 
   async notifyNewConversation(conversationId: string, participantIds: string[]): Promise<void> {
-    const conversation = await this.conversationsService.findById(conversationId);
-    if (!conversation) return;
+    try {
+      const conversation = await this.conversationsService.findById(conversationId);
+      if (!conversation) return;
 
-    const socketsByUser = await this.connectionService.getUsersSockets(participantIds);
+      const socketsByUser = await this.connectionService.getUsersSockets(participantIds);
 
-    for (const participantId of participantIds) {
-      const sockets = socketsByUser.get(participantId) ?? [];
-      for (const socketId of sockets) {
-        const socket = this.server.sockets.sockets.get(socketId) as AuthenticatedSocket | undefined;
-        if (!socket) continue;
-        await this.roomService.joinConversationRoom(socket, conversationId);
-        socket.emit('conversation:new', conversation);
+      for (const participantId of participantIds) {
+        const sockets = socketsByUser.get(participantId) ?? [];
+        for (const socketId of sockets) {
+          const socket = this.server.sockets.sockets.get(socketId) as AuthenticatedSocket | undefined;
+          if (!socket) continue;
+          await this.roomService.joinConversationRoom(socket, conversationId);
+          socket.emit('conversation:new', conversation);
+        }
       }
+    } catch (error) {
+      this.logger.warn(
+        `Failed to notify conversation creation conversationId=${conversationId}: ${(error as Error).message}`,
+      );
     }
   }
 
