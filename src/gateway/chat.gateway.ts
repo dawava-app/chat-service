@@ -447,7 +447,9 @@ export class ChatGateway
       for (const participantId of participantIds) {
         const sockets = socketsByUser.get(participantId) ?? [];
         for (const socketId of sockets) {
-          const socket = this.server.sockets.sockets.get(socketId) as AuthenticatedSocket | undefined;
+          const socket = this.server.sockets.sockets.get(socketId) as
+            | AuthenticatedSocket
+            | undefined;
           if (!socket) continue;
           await this.roomService.joinConversationRoom(socket, conversationId);
           socket.emit('conversation:new', conversation);

@@ -24,7 +24,9 @@ describe('ChatGateway', () => {
 
   it('does not reject when conversation notification fails', async () => {
     const gateway = createGateway();
-    const loggerWarn = jest.spyOn((gateway as any).logger, 'warn').mockImplementation(() => undefined);
+    const loggerWarn = jest
+      .spyOn((gateway as any).logger, 'warn')
+      .mockImplementation(() => undefined);
 
     (gateway as any).conversationsService.findById.mockResolvedValue({ _id: 'conv-1' });
     (gateway as any).connectionService.getUsersSockets.mockRejectedValue(new Error('redis down'));
