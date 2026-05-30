@@ -113,6 +113,11 @@ export class JwtVerificationService {
   }
 
   private async loadOrFetchJwks(): Promise<CachedJwks> {
+    const staticJwks = this.configService.get<JwksDocument | undefined>('auth.jwtJwks');
+    if (staticJwks) {
+      return this.createCachedJwks(staticJwks);
+    }
+
     const cachedJwks = await this.readCachedJwks();
     if (cachedJwks) {
       return cachedJwks;
@@ -121,6 +126,37 @@ export class JwtVerificationService {
     const jwks = await this.fetchJwks();
     await this.writeCachedJwks(jwks);
     return jwks;
+  }
+
+  private createCachedJwks(jwks: JwksDocument): CachedJwks {
+    const cacheTtlMs = this.configService.get<number>('auth.jwtJwksCacheTtlMs') ?? 5 * 60 * 1000;
+    const keysByKid = new Map<string, string>();
+
+    for (const jwk of jwks.keys ?? []) {
+      const kid = typeof jwk.kid === 'string' ? jwk.kid.trim() : '';
+      if (!kid) {
+        continue;
+      }
+
+      try {
+        const publicKey = createPublicKey({ key: jwk as any, format: 'jwk' })
+          .export({ format: 'pem', type: 'spki' })
+          .toString();
+
+        keysByKid.set(kid, publicKey);
+      } catch {
+        continue;
+      }
+    }
+
+    if (keysByKid.size === 0) {
+      throw new UnauthorizedException('Invalid authentication token');
+    }
+
+    return {
+      expiresAt: Date.now() + cacheTtlMs,
+      keysByKid,
+    };
   }
 
   private async readCachedJwks(): Promise<CachedJwks | undefined> {
@@ -184,7 +220,6 @@ export class JwtVerificationService {
 
   private async fetchJwks(): Promise<CachedJwks> {
     const jwksUrl = this.configService.getOrThrow<string>('auth.jwtJwksUrl');
-    const cacheTtlMs = this.configService.get<number>('auth.jwtJwksCacheTtlMs') ?? 5 * 60 * 1000;
     const response = await fetch(jwksUrl, {
       headers: {
         accept: 'application/json',
@@ -196,32 +231,6 @@ export class JwtVerificationService {
     }
 
     const jwks = (await response.json()) as JwksDocument;
-    const keysByKid = new Map<string, string>();
-
-    for (const jwk of jwks.keys ?? []) {
-      const kid = typeof jwk.kid === 'string' ? jwk.kid.trim() : '';
-      if (!kid) {
-        continue;
-      }
-
-      try {
-        const publicKey = createPublicKey({ key: jwk as any, format: 'jwk' })
-          .export({ format: 'pem', type: 'spki' })
-          .toString();
-
-        keysByKid.set(kid, publicKey);
-      } catch {
-        continue;
-      }
-    }
-
-    if (keysByKid.size === 0) {
-      throw new UnauthorizedException('Invalid authentication token');
-    }
-
-    return {
-      expiresAt: Date.now() + cacheTtlMs,
-      keysByKid,
-    };
+    return this.createCachedJwks(jwks);
   }
 }

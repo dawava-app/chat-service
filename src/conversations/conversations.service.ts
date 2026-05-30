@@ -121,7 +121,9 @@ export class ConversationsService {
     }
 
     if (query.with?.length) {
-      const participantIds = [...new Set(query.with)].filter((participantId) => participantId !== userId);
+      const participantIds = [...new Set(query.with)].filter(
+        (participantId) => participantId !== userId,
+      );
       if (participantIds.length) {
         filter.participantIds = { $in: participantIds };
       }

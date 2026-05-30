@@ -23,6 +23,7 @@ All configuration is provided via environment variables.
 | AUTH_JWT_SECRET | - | Shared JWT secret for symmetric validation |
 | AUTH_JWT_ISSUER | - | Expected JWT issuer |
 | AUTH_JWT_AUDIENCE | - | Expected JWT audience |
+| AUTH_JWT_JWKS_JSON | - | Inline JWKS document JSON for asymmetric validation |
 | AUTH_JWT_JWKS_URL | - | JWKS endpoint for asymmetric validation |
 | AUTH_JWT_JWKS_CACHE_TTL_MS | 300000 | JWKS cache TTL in milliseconds |
 | INTERNAL_API_SECRET | - | Secret for internal API |

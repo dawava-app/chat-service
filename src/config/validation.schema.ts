@@ -17,9 +17,10 @@ export const validationSchema = Joi.object({
     }),
   AUTH_JWT_ISSUER: Joi.string().default('master-service'),
   AUTH_JWT_AUDIENCE: Joi.string().optional(),
+  AUTH_JWT_JWKS_JSON: Joi.string().optional(),
   AUTH_JWT_JWKS_URL: Joi.string().uri().when('AUTH_JWT_VALIDATION_MODE', {
     is: 'asymmetric',
-    then: Joi.string().uri().required(),
+    then: Joi.string().uri().optional(),
     otherwise: Joi.string().uri().optional(),
   }),
   AUTH_JWT_JWKS_CACHE_TTL_MS: Joi.number()
