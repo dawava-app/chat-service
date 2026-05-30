@@ -21,7 +21,7 @@ If you use external MongoDB/Redis, omit the profile and set `MONGODB_URI` and `R
 
 ## Step 2: Configure Authentication
 - `AUTH_JWT_VALIDATION_MODE=symmetric` uses the shared `AUTH_JWT_SECRET`.
-- `AUTH_JWT_VALIDATION_MODE=asymmetric` requires `AUTH_JWT_JWKS_URL` and uses the master service JWKS.
+- `AUTH_JWT_VALIDATION_MODE=asymmetric` uses the master service JWKS via `AUTH_JWT_JWKS_URL` or inline `AUTH_JWT_JWKS_JSON`.
 - `AUTH_JWT_ISSUER` should match the token issuer.
 - `AUTH_JWT_AUDIENCE` should match the token audience when one is issued.
 - Set `INTERNAL_API_SECRET` for server-to-server calls.

@@ -14,6 +14,9 @@ export default () => ({
     jwtSecret: process.env.AUTH_JWT_SECRET,
     jwtIssuer: process.env.AUTH_JWT_ISSUER,
     jwtAudience: process.env.AUTH_JWT_AUDIENCE,
+    jwtJwks: process.env.AUTH_JWT_JWKS_JSON
+      ? JSON.parse(process.env.AUTH_JWT_JWKS_JSON)
+      : undefined,
     jwtJwksUrl: process.env.AUTH_JWT_JWKS_URL,
     jwtJwksCacheTtlMs: parseInt(process.env.AUTH_JWT_JWKS_CACHE_TTL_MS ?? `${5 * 60 * 1000}`, 10),
   },
