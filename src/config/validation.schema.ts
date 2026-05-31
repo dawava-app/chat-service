@@ -11,9 +11,9 @@ export const validationSchema = Joi.object({
   AUTH_JWT_SECRET: Joi.string()
     .min(32)
     .when('AUTH_JWT_VALIDATION_MODE', {
-      is: 'asymmetric',
-      then: Joi.string().min(32).optional(),
-      otherwise: Joi.string().min(32).required(),
+      is: 'symmetric',
+      then: Joi.string().min(32).required(),
+      otherwise: Joi.string().min(32).optional(),
     }),
   AUTH_JWT_ISSUER: Joi.string().default('master-service'),
   AUTH_JWT_AUDIENCE: Joi.string().optional(),
