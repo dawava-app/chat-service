@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  OnModuleInit,
   Injectable,
   NotFoundException,
   Inject,
@@ -46,7 +47,7 @@ interface CursorPayload {
 }
 
 @Injectable()
-export class ConversationsService {
+export class ConversationsService implements OnModuleInit {
   constructor(
     @InjectModel(Conversation.name)
     private readonly conversationModel: Model<ConversationDocument>,
@@ -56,6 +57,10 @@ export class ConversationsService {
     private readonly readReceiptsService?: ReadReceiptsService,
     private readonly webhooksService?: WebhooksService,
   ) {}
+
+  async onModuleInit(): Promise<void> {
+    await this.conversationModel.syncIndexes();
+  }
 
   async create(userId: string, dto: CreateConversationDto): Promise<Conversation> {
     if (!dto.participantIds.includes(userId)) {
@@ -70,6 +75,14 @@ export class ConversationsService {
       throw new BadRequestException('Group conversations must include at least 2 participants');
     }
 
+    if (dto.type === ConversationType.Direct) {
+      const otherUserId = dto.participantIds.find((id) => id !== userId);
+      if (!otherUserId) {
+        throw new BadRequestException('Direct conversation requires another participant');
+      }
+      return this.findOrCreateDirect(userId, otherUserId, dto.metadata);
+    }
+
     const participantIds = this.normalizeParticipantIds(dto.participantIds);
     const joinedAt = new Date();
 
@@ -77,34 +90,23 @@ export class ConversationsService {
 
     const payload: Partial<Conversation> = {
       type: dto.type,
-      name: dto.type === ConversationType.Group ? dto.name : undefined,
+      name: dto.name,
       participants,
       participantIds,
       metadata: dto.metadata ?? {},
       createdBy: userId,
     };
 
-    try {
-      const created = await this.conversationModel.create(payload);
-      await this.chatGateway?.notifyNewConversation(created._id.toString(), created.participantIds);
-      await this.webhooksService?.emitEvent(WebhookEventType.CONVERSATION_CREATED, {
-        conversationId: created._id.toString(),
-        type: created.type,
-        participantIds: created.participantIds,
-        createdBy: created.createdBy,
-        createdAt: created.createdAt ?? new Date(),
-      });
-      return created.toObject({ getters: true, virtuals: false });
-    } catch (error) {
-      if (this.isDuplicateKeyError(error) && dto.type === ConversationType.Direct) {
-        const otherUserId = participantIds.find((id) => id !== userId);
-        if (!otherUserId) {
-          throw new BadRequestException('Direct conversation requires another participant');
-        }
-        return this.findOrCreateDirect(userId, otherUserId, dto.metadata);
-      }
-      throw error;
-    }
+    const created = await this.conversationModel.create(payload);
+    await this.chatGateway?.notifyNewConversation(created._id.toString(), created.participantIds);
+    await this.webhooksService?.emitEvent(WebhookEventType.CONVERSATION_CREATED, {
+      conversationId: created._id.toString(),
+      type: created.type,
+      participantIds: created.participantIds,
+      createdBy: created.createdBy,
+      createdAt: created.createdAt ?? new Date(),
+    });
+    return created.toObject({ getters: true, virtuals: false });
   }
 
   async findAllForUser(
@@ -215,9 +217,10 @@ export class ConversationsService {
     }
 
     const participantIds = this.normalizeParticipantIds([userId, otherUserId]);
+    const directKey = this.buildDirectConversationKey(participantIds);
 
     const existing = await this.conversationModel
-      .findOne({ type: ConversationType.Direct, participantIds })
+      .findOne({ directKey })
       .exec();
 
     if (existing) {
@@ -238,23 +241,34 @@ export class ConversationsService {
       joinedAt,
     );
 
-    const created = await this.conversationModel.create({
-      type: ConversationType.Direct,
-      participants,
-      participantIds,
-      metadata: metadata ?? {},
-      createdBy: userId,
-    });
+    try {
+      const created = await this.conversationModel.create({
+        type: ConversationType.Direct,
+        participants,
+        participantIds,
+        directKey,
+        metadata: metadata ?? {},
+        createdBy: userId,
+      });
 
-    await this.webhooksService?.emitEvent(WebhookEventType.CONVERSATION_CREATED, {
-      conversationId: created._id.toString(),
-      type: created.type,
-      participantIds: created.participantIds,
-      createdBy: created.createdBy,
-      createdAt: created.createdAt ?? new Date(),
-    });
+      await this.webhooksService?.emitEvent(WebhookEventType.CONVERSATION_CREATED, {
+        conversationId: created._id.toString(),
+        type: created.type,
+        participantIds: created.participantIds,
+        createdBy: created.createdBy,
+        createdAt: created.createdAt ?? new Date(),
+      });
 
-    return created.toObject({ getters: true, virtuals: false });
+      return created.toObject({ getters: true, virtuals: false });
+    } catch (error) {
+      if (this.isDuplicateKeyError(error)) {
+        const retryExisting = await this.conversationModel.findOne({ directKey }).exec();
+        if (retryExisting) {
+          return retryExisting.toObject({ getters: true, virtuals: false });
+        }
+      }
+      throw error;
+    }
   }
 
   async addParticipant(
@@ -556,6 +570,10 @@ export class ConversationsService {
 
   private normalizeParticipantIds(participantIds: string[]): string[] {
     return Array.from(new Set(participantIds)).sort();
+  }
+
+  private buildDirectConversationKey(participantIds: string[]): string {
+    return this.normalizeParticipantIds(participantIds).join(':');
   }
 
   private buildParticipants(

@@ -34,6 +34,9 @@ export class Conversation {
   @Prop()
   name?: string;
 
+  @Prop()
+  directKey?: string;
+
   @Prop({ type: [ParticipantSchema], required: true })
   participants!: Participant[];
 
@@ -58,6 +61,6 @@ export const ConversationSchema = SchemaFactory.createForClass(Conversation);
 ConversationSchema.index({ 'participants.externalUserId': 1 });
 ConversationSchema.index({ updatedAt: -1 });
 ConversationSchema.index(
-  { type: 1, participantIds: 1 },
-  { unique: true, partialFilterExpression: { type: ConversationType.Direct } },
+  { directKey: 1 },
+  { unique: true, partialFilterExpression: { type: ConversationType.Direct, directKey: { $exists: true } } },
 );

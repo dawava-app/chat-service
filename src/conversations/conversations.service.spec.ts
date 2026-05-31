@@ -48,6 +48,7 @@ describe('ConversationsService', () => {
       participantIds: ['user-1', 'user-2'],
     });
 
+    model.findOne.mockReturnValue({ exec: jest.fn().mockResolvedValue(null) });
     model.create.mockResolvedValue(createdDoc);
 
     const result = await service.create('user-1', {
@@ -55,9 +56,10 @@ describe('ConversationsService', () => {
       participantIds: ['user-1', 'user-2'],
     } as any);
 
-    expect(model.create).toHaveBeenCalled();
+    expect(model.findOne).toHaveBeenCalledWith({ directKey: 'user-1:user-2' });
     const payload = model.create.mock.calls[0][0];
     expect(payload.type).toBe(ConversationType.Direct);
+    expect(payload.directKey).toBe('user-1:user-2');
     expect(payload.participants[0].role).toBeUndefined();
     expect(result).toMatchObject({ type: ConversationType.Direct });
   });
@@ -119,6 +121,32 @@ describe('ConversationsService', () => {
 
     expect(result).toMatchObject({ type: ConversationType.Direct });
     expect(model.create).not.toHaveBeenCalled();
+  });
+
+  it('findOrCreateDirect returns existing after duplicate insert race', async () => {
+    const model = createModel();
+    const service = createService(model);
+    const existing = createDoc({
+      type: ConversationType.Direct,
+      participantIds: ['user-1', 'user-2'],
+      directKey: 'user-1:user-2',
+      participants: [
+        { externalUserId: 'user-1', joinedAt: new Date() },
+        { externalUserId: 'user-2', joinedAt: new Date() },
+      ],
+    });
+
+    model.findOne
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(null) })
+      .mockReturnValueOnce({ exec: jest.fn().mockResolvedValue(existing) });
+    model.create.mockRejectedValueOnce({ code: 11000 });
+
+    const result = await service.findOrCreateDirect('user-1', 'user-2');
+
+    expect(result).toMatchObject({ type: ConversationType.Direct });
+    expect(model.create).toHaveBeenCalledWith(
+      expect.objectContaining({ directKey: 'user-1:user-2' }),
+    );
   });
 
   it('findOrCreateDirect updates existing metadata when provided', async () => {
