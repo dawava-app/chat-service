@@ -9,16 +9,14 @@ services:
       NODE_ENV: ${NODE_ENV:-production}
       MONGODB_URI: ${MONGODB_URI:-mongodb://chat-mongo:27017/chat-service}
       REDIS_URL: ${REDIS_URL:-redis://chat-redis:6379}
+      PORT: ${PORT:-3000}
+      WS_PORT: ${WS_PORT:-3001}
     ports:
       - "3000:${PORT:-3000}"  # REST API (internal, master calls this)
       - "3001:${WS_PORT:-3001}"  # WebSocket (public, frontend connects directly)
     depends_on:
-      chat-mongo:
-        condition: service_started
-        required: false
-      chat-redis:
-        condition: service_started
-        required: false
+      - chat-mongo
+      - chat-redis
     healthcheck:
       test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:${PORT:-3000}/health',res=>process.exit(res.statusCode===200?0:1))\""]
       interval: 30s
