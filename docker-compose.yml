@@ -1,26 +1,17 @@
 services:
   chat-service:
-    build: .
-    ports:
-      - "3000:3000"  # REST API (internal, master calls this)
-      - "3001:3001"  # WebSocket (public, frontend connects directly)
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: chat
+    restart: unless-stopped
     environment:
-      PORT: ${PORT:-3000}
-      WS_PORT: ${WS_PORT:-3001}
       NODE_ENV: ${NODE_ENV:-production}
-      LOG_LEVEL: ${LOG_LEVEL:-info}
       MONGODB_URI: ${MONGODB_URI:-mongodb://chat-mongo:27017/chat-service}
       REDIS_URL: ${REDIS_URL:-redis://chat-redis:6379}
-      AUTH_JWT_VALIDATION_MODE: ${AUTH_JWT_VALIDATION_MODE:-symmetric}
-      AUTH_JWT_SECRET: ${AUTH_JWT_SECRET}
-      AUTH_JWT_ISSUER: ${AUTH_JWT_ISSUER:-master-service}
-      AUTH_JWT_AUDIENCE: ${AUTH_JWT_AUDIENCE:-}
-      AUTH_JWT_JWKS_URL: ${AUTH_JWT_JWKS_URL:-}
-      AUTH_JWT_JWKS_CACHE_TTL_MS: ${AUTH_JWT_JWKS_CACHE_TTL_MS:-300000}
-      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET}
-      WEBHOOK_URL: ${WEBHOOK_URL}
-      WEBHOOK_SECRET: ${WEBHOOK_SECRET}
-      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+    ports:
+      - "3000:${PORT:-3000}"  # REST API (internal, master calls this)
+      - "3001:${WS_PORT:-3001}"  # WebSocket (public, frontend connects directly)
     depends_on:
       chat-mongo:
         condition: service_started
@@ -28,22 +19,38 @@ services:
       chat-redis:
         condition: service_started
         required: false
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"require('http').get('http://127.0.0.1:${PORT:-3000}/health',res=>process.exit(res.statusCode===200?0:1))\""]
+      interval: 30s
+      timeout: 10s
+      retries: 5
 
   chat-mongo:
     image: mongo:7
     profiles: [with-db]
-    ports:
-      - "27017:27017"
+    container_name: chat_mongo
+    restart: unless-stopped
     volumes:
       - chat-mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
   chat-redis:
     image: redis:7-alpine
     profiles: [with-db]
-    ports:
-      - "6379:6379"
+    container_name: chat_redis
+    restart: unless-stopped
     volumes:
       - chat-redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 5s
 
 volumes:
   chat-mongo-data:
