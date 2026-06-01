@@ -3,9 +3,20 @@ import { Logger } from 'nestjs-pino';
 import { ConfigService } from '@nestjs/config';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
-import type { Request, Response } from 'express';
+import type { Request } from 'express';
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './gateway/adapters/redis-io.adapter';
+
+function normalizeForwardedPrefix(prefix: string | string[] | undefined): string {
+  const rawPrefix = Array.isArray(prefix) ? prefix[0] : prefix;
+
+  if (!rawPrefix) {
+    return '/';
+  }
+
+  const normalizedPrefix = rawPrefix.split(',')[0].trim().replace(/^\/+|\/+$/g, '');
+  return normalizedPrefix ? `/${normalizedPrefix}` : '/';
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule, { bufferLogs: true });
@@ -34,8 +45,16 @@ async function bootstrap() {
     .addBearerAuth()
     .build();
   const swaggerDocument = SwaggerModule.createDocument(app, swaggerConfig);
-  SwaggerModule.setup('api/docs', app, swaggerDocument);
-  app.use('/api/docs-json', (_req: Request, res: Response) => res.json(swaggerDocument));
+  SwaggerModule.setup('api/docs', app, swaggerDocument, {
+    patchDocumentOnRequest: (req, _res, document) => {
+      const forwardedPrefix = (req as Request).headers['x-forwarded-prefix'];
+
+      return {
+        ...document,
+        servers: [{ url: normalizeForwardedPrefix(forwardedPrefix) }],
+      };
+    },
+  });
 
   // CORS Configuration
   const allowedOrigins = configService.get<string[]>('cors.origins') ?? [];
