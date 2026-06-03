@@ -1,4 +1,4 @@
-import { Inject, Injectable, Optional, UnauthorizedException } from '@nestjs/common';
+import { Inject, Injectable, Logger, Optional, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { createPublicKey } from 'node:crypto';
@@ -31,6 +31,7 @@ const JWKS_CACHE_KEY = 'auth:jwks-cache';
 
 @Injectable()
 export class JwtVerificationService {
+  private readonly logger = new Logger(JwtVerificationService.name);
   private cachedJwks?: CachedJwks;
   private cachedJwksPromise?: Promise<CachedJwks>;
 
@@ -43,17 +44,27 @@ export class JwtVerificationService {
   ) {}
 
   async verifyToken<T extends object>(token: string): Promise<T> {
-    const secretOrKey = await this.resolveVerificationSecret(token);
-    const issuer = this.configService.get<string>('auth.jwtIssuer');
-    const audience = this.configService.get<string>('auth.jwtAudience');
     const mode = this.getValidationMode();
+    this.logger.debug(`Starting token verification in ${mode} mode`);
 
-    return this.jwtService.verifyAsync<T>(token, {
-      secret: secretOrKey,
-      ...(issuer ? { issuer } : {}),
-      ...(audience ? { audience } : {}),
-      ...(mode === 'asymmetric' ? { algorithms: ['RS256'] } : {}),
-    });
+    try {
+      const secretOrKey = await this.resolveVerificationSecret(token);
+      const issuer = this.configService.get<string>('auth.jwtIssuer');
+      const audience = this.configService.get<string>('auth.jwtAudience');
+
+      const result = await this.jwtService.verifyAsync<T>(token, {
+        secret: secretOrKey,
+        ...(issuer ? { issuer } : {}),
+        ...(audience ? { audience } : {}),
+        ...(mode === 'asymmetric' ? { algorithms: ['RS256'] } : {}),
+      });
+
+      this.logger.debug('Token verification succeeded');
+      return result;
+    } catch (error) {
+      this.logger.error(`Token verification failed: ${(error as Error).message}`);
+      throw new UnauthorizedException('Invalid authentication token');
+    }
   }
 
   async resolveVerificationSecret(token: string): Promise<string> {
@@ -66,6 +77,7 @@ export class JwtVerificationService {
     const publicKey = jwks.keysByKid.get(kid);
 
     if (!publicKey) {
+      this.logger.warn(`Public key not found for kid: ${kid}`);
       throw new UnauthorizedException('Invalid authentication token');
     }
 
@@ -77,14 +89,20 @@ export class JwtVerificationService {
   }
 
   private extractKeyId(token: string): string {
-    const decoded = this.jwtService.decode(token, { complete: true }) as DecodedJwt | null;
-    const kid = decoded?.header?.kid?.trim();
+    try {
+      const decoded = this.jwtService.decode(token, { complete: true }) as DecodedJwt | null;
+      const kid = decoded?.header?.kid?.trim();
 
-    if (!kid) {
+      if (!kid) {
+        this.logger.warn('Token decoding failed or did not contain a valid kid');
+        throw new UnauthorizedException('Invalid authentication token');
+      }
+
+      return kid;
+    } catch (error) {
+      this.logger.error(`Failed to decode token structure: ${(error as Error).message}`);
       throw new UnauthorizedException('Invalid authentication token');
     }
-
-    return kid;
   }
 
   private async getJwks(): Promise<CachedJwks> {
@@ -93,10 +111,17 @@ export class JwtVerificationService {
       return cache;
     }
 
+    if (cache) {
+      this.logger.log('In-memory JWKS cache expired. Refreshing...');
+    }
+
     if (!this.cachedJwksPromise) {
+      this.logger.debug('No active JWKS fetch flight. Initiating unique loading promise.');
       this.cachedJwksPromise = this.loadOrFetchJwks().finally(() => {
         this.cachedJwksPromise = undefined;
       });
+    } else {
+      this.logger.debug('Coalescing JWKS request into active pending promise');
     }
 
     try {
@@ -104,7 +129,9 @@ export class JwtVerificationService {
       this.cachedJwks = jwks;
       return jwks;
     } catch (error) {
+      this.logger.error(`Failed to retrieve fresh JWKS: ${(error as Error).message}`);
       if (cache) {
+        this.logger.warn('Serving stale in-memory JWKS cache as fallback');
         return cache;
       }
 
@@ -115,14 +142,17 @@ export class JwtVerificationService {
   private async loadOrFetchJwks(): Promise<CachedJwks> {
     const staticJwks = this.configService.get<JwksDocument | undefined>('auth.jwtJwks');
     if (staticJwks) {
+      this.logger.log('Loading JWKS from static configurations');
       return this.createCachedJwks(staticJwks);
     }
 
     const cachedJwks = await this.readCachedJwks();
     if (cachedJwks) {
+      this.logger.debug('JWKS cache hit via Redis');
       return cachedJwks;
     }
 
+    this.logger.log('JWKS cache miss everywhere. Fetching fresh JWKS remotely...');
     const jwks = await this.fetchJwks();
     await this.writeCachedJwks(jwks);
     return jwks;
@@ -135,6 +165,7 @@ export class JwtVerificationService {
     for (const jwk of jwks.keys ?? []) {
       const kid = typeof jwk.kid === 'string' ? jwk.kid.trim() : '';
       if (!kid) {
+        this.logger.warn('Encountered an anonymous or empty kid property in JWKS payload');
         continue;
       }
 
@@ -144,12 +175,14 @@ export class JwtVerificationService {
           .toString();
 
         keysByKid.set(kid, publicKey);
-      } catch {
+      } catch (error) {
+        this.logger.error(`Crypto error: parsing JWK failed for kid: ${kid}. Error: ${(error as Error).message}`);
         continue;
       }
     }
 
     if (keysByKid.size === 0) {
+      this.logger.error('The parsed JWKS map resulted in zero valid public PEM keys');
       throw new UnauthorizedException('Invalid authentication token');
     }
 
@@ -172,6 +205,7 @@ export class JwtVerificationService {
 
       const parsed = JSON.parse(cachedValue) as SerializedCachedJwks;
       if (!parsed?.expiresAt || !Array.isArray(parsed.keys) || parsed.expiresAt <= Date.now()) {
+        this.logger.warn('Redis JWKS entry payload invalid or expired. Purging cache key...');
         await this.redisClient.del(JWKS_CACHE_KEY).catch(() => undefined);
         return undefined;
       }
@@ -191,7 +225,8 @@ export class JwtVerificationService {
         expiresAt: parsed.expiresAt,
         keysByKid,
       };
-    } catch {
+    } catch (error) {
+      this.logger.error(`Error reading or decoding Redis JWKS cache payload: ${(error as Error).message}`);
       return undefined;
     }
   }
@@ -213,24 +248,36 @@ export class JwtVerificationService {
 
     try {
       await this.redisClient.set(JWKS_CACHE_KEY, JSON.stringify(payload), 'PX', ttlMs);
-    } catch {
-      // Redis is an optimization; continue without failing auth if the cache write fails.
+      this.logger.debug(`Successfully populated Redis JWKS cache for the next ${ttlMs}ms`);
+    } catch (error) {
+      this.logger.warn(`Failed to commit JWKS to Redis cache layer optimization: ${(error as Error).message}`);
     }
   }
 
   private async fetchJwks(): Promise<CachedJwks> {
     const jwksUrl = this.configService.getOrThrow<string>('auth.jwtJwksUrl');
-    const response = await fetch(jwksUrl, {
-      headers: {
-        accept: 'application/json',
-      },
-    });
+    this.logger.debug(`HTTP GET request dispatched to remote JWKS endpoint: ${jwksUrl}`);
+    
+    try {
+      const response = await fetch(jwksUrl, {
+        headers: {
+          accept: 'application/json',
+        },
+      });
 
-    if (!response.ok) {
+      if (!response.ok) {
+        this.logger.error(`Remote JWKS HTTP resource responded with status code: ${response.status}`);
+        throw new UnauthorizedException('Invalid authentication token');
+      }
+
+      const jwks = (await response.json()) as JwksDocument;
+      return this.createCachedJwks(jwks);
+    } catch (error) {
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      this.logger.error(`Network or fetch pipeline disruption pointing to remote JWKS: ${(error as Error).message}`);
       throw new UnauthorizedException('Invalid authentication token');
     }
-
-    const jwks = (await response.json()) as JwksDocument;
-    return this.createCachedJwks(jwks);
   }
 }
