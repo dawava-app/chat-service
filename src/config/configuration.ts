@@ -5,8 +5,7 @@ export default () => ({
     wsPort: parseInt(process.env.WS_PORT ?? '3001', 10),
   },
   logger: {
-    level:
-      process.env.LOG_LEVEL ?? (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
+    level: process.env.LOG_LEVEL ?? (process.env.NODE_ENV === 'production' ? 'info' : 'debug'),
   },
   mongodb: {
     uri: process.env.MONGODB_URI,

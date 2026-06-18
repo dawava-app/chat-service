@@ -182,7 +182,7 @@ export class ChatGateway
         message: 'Not a participant in this conversation',
       });
     }
-    
+
     if (userId !== socket.user.claims.sub) {
       dto.metadata = {
         ...dto.metadata,
