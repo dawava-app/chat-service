@@ -90,7 +90,7 @@ export class JwtVerificationService {
 
   private extractKeyId(token: string): string {
     try {
-      const decoded = this.jwtService.decode(token, { complete: true }) as DecodedJwt | null;
+      const decoded = this.jwtService.decode(token, { complete: true });
       const kid = decoded?.header?.kid?.trim();
 
       if (!kid) {
@@ -176,7 +176,9 @@ export class JwtVerificationService {
 
         keysByKid.set(kid, publicKey);
       } catch (error) {
-        this.logger.error(`Crypto error: parsing JWK failed for kid: ${kid}. Error: ${(error as Error).message}`);
+        this.logger.error(
+          `Crypto error: parsing JWK failed for kid: ${kid}. Error: ${(error as Error).message}`,
+        );
         continue;
       }
     }
@@ -226,7 +228,9 @@ export class JwtVerificationService {
         keysByKid,
       };
     } catch (error) {
-      this.logger.error(`Error reading or decoding Redis JWKS cache payload: ${(error as Error).message}`);
+      this.logger.error(
+        `Error reading or decoding Redis JWKS cache payload: ${(error as Error).message}`,
+      );
       return undefined;
     }
   }
@@ -250,14 +254,16 @@ export class JwtVerificationService {
       await this.redisClient.set(JWKS_CACHE_KEY, JSON.stringify(payload), 'PX', ttlMs);
       this.logger.debug(`Successfully populated Redis JWKS cache for the next ${ttlMs}ms`);
     } catch (error) {
-      this.logger.warn(`Failed to commit JWKS to Redis cache layer optimization: ${(error as Error).message}`);
+      this.logger.warn(
+        `Failed to commit JWKS to Redis cache layer optimization: ${(error as Error).message}`,
+      );
     }
   }
 
   private async fetchJwks(): Promise<CachedJwks> {
     const jwksUrl = this.configService.getOrThrow<string>('auth.jwtJwksUrl');
     this.logger.debug(`HTTP GET request dispatched to remote JWKS endpoint: ${jwksUrl}`);
-    
+
     try {
       const response = await fetch(jwksUrl, {
         headers: {
@@ -266,7 +272,9 @@ export class JwtVerificationService {
       });
 
       if (!response.ok) {
-        this.logger.error(`Remote JWKS HTTP resource responded with status code: ${response.status}`);
+        this.logger.error(
+          `Remote JWKS HTTP resource responded with status code: ${response.status}`,
+        );
         throw new UnauthorizedException('Invalid authentication token');
       }
 
@@ -276,7 +284,9 @@ export class JwtVerificationService {
       if (error instanceof UnauthorizedException) {
         throw error;
       }
-      this.logger.error(`Network or fetch pipeline disruption pointing to remote JWKS: ${(error as Error).message}`);
+      this.logger.error(
+        `Network or fetch pipeline disruption pointing to remote JWKS: ${(error as Error).message}`,
+      );
       throw new UnauthorizedException('Invalid authentication token');
     }
   }

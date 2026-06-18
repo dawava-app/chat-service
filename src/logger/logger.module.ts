@@ -13,7 +13,8 @@ import { AppConfigModule } from '../config/config.module';
       useFactory: (configService: ConfigService) => {
         const nodeEnv = configService.get<string>('app.nodeEnv') ?? 'development';
         const isProduction = nodeEnv === 'production';
-        const level = configService.get<string>('logger.level') ?? (isProduction ? 'info' : 'debug');
+        const level =
+          configService.get<string>('logger.level') ?? (isProduction ? 'info' : 'debug');
 
         return {
           pinoHttp: {

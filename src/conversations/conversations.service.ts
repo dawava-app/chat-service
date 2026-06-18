@@ -219,9 +219,7 @@ export class ConversationsService implements OnModuleInit {
     const participantIds = this.normalizeParticipantIds([userId, otherUserId]);
     const directKey = this.buildDirectConversationKey(participantIds);
 
-    const existing = await this.conversationModel
-      .findOne({ directKey })
-      .exec();
+    const existing = await this.conversationModel.findOne({ directKey }).exec();
 
     if (existing) {
       // Update metadata if provided

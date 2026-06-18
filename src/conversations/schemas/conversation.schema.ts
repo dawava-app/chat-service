@@ -62,5 +62,8 @@ ConversationSchema.index({ 'participants.externalUserId': 1 });
 ConversationSchema.index({ updatedAt: -1 });
 ConversationSchema.index(
   { directKey: 1 },
-  { unique: true, partialFilterExpression: { type: ConversationType.Direct, directKey: { $exists: true } } },
+  {
+    unique: true,
+    partialFilterExpression: { type: ConversationType.Direct, directKey: { $exists: true } },
+  },
 );
