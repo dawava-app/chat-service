@@ -14,7 +14,10 @@ function normalizeForwardedPrefix(prefix: string | string[] | undefined): string
     return '/';
   }
 
-  const normalizedPrefix = rawPrefix.split(',')[0].trim().replace(/^\/+|\/+$/g, '');
+  const normalizedPrefix = rawPrefix
+    .split(',')[0]
+    .trim()
+    .replace(/^\/+|\/+$/g, '');
   return normalizedPrefix ? `/${normalizedPrefix}` : '/';
 }
 
