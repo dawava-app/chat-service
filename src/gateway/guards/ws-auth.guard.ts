@@ -33,6 +33,7 @@ export class WsAuthGuard implements CanActivate {
         externalUserId,
         conversationIds: [],
         connectedAt: new Date(),
+        claims: payload,
       };
 
       (client as unknown as { user?: SocketUserData }).user = user;
