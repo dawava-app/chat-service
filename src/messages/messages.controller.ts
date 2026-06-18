@@ -37,6 +37,14 @@ export class MessagesController {
     @Param('conversationId') conversationId: string,
     @Body() dto: SendMessageDto,
   ): Promise<MessageWithSender | MessageWithSenderAndReply> {
+
+    if (user.externalUserId !== user.claims.sub) {
+      dto.metadata = {
+        ...dto.metadata,
+        originalSenderId: user.claims.sub,
+      };
+    }
+
     const message = await this.messagesService.send(conversationId, user.externalUserId, dto);
 
     if (dto.replyTo) {
