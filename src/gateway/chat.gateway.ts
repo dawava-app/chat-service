@@ -182,6 +182,13 @@ export class ChatGateway
         message: 'Not a participant in this conversation',
       });
     }
+    
+    if (userId !== socket.user.claims.sub) {
+      dto.metadata = {
+        ...dto.metadata,
+        originalSenderId: socket.user.claims.sub,
+      };
+    }
 
     const message = await this.messagesService.send(dto.conversationId, userId, {
       content: dto.content,
@@ -510,6 +517,7 @@ export class ChatGateway
         externalUserId,
         conversationIds: [],
         connectedAt: new Date(),
+        claims: payload,
       };
     } catch {
       return null;
