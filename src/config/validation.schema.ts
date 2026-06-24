@@ -40,4 +40,6 @@ export const validationSchema = Joi.object({
   WEBHOOK_RETRY_ATTEMPTS: Joi.number().integer().min(1).default(3),
   WEBHOOK_TIMEOUT_MS: Joi.number().integer().min(1000).default(5000),
   ALLOWED_ORIGINS: Joi.string().optional(),
+  FILE_SERVICE_URL: Joi.string().uri().optional(),
+  FILE_SERVICE_TOKEN: Joi.string().min(32).optional(),
 });

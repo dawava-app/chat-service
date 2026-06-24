@@ -11,6 +11,8 @@ services:
       REDIS_URL: ${REDIS_URL:-redis://chat-redis:6379}
       PORT: ${PORT:-3000}
       WS_PORT: ${WS_PORT:-3001}
+      FILE_SERVICE_URL: ${FILE_SERVICE_URL:-http://file:8080}
+      FILE_SERVICE_TOKEN: ${INTERNAL_API_SECRET}
     ports:
       - "3000:${PORT:-3000}"  # REST API (internal, master calls this)
       - "3001:${WS_PORT:-3001}"  # WebSocket (public, frontend connects directly)

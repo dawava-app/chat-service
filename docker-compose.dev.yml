@@ -12,6 +12,8 @@ services:
       WS_PORT: ${WS_PORT:-3001}
       NODE_ENV: ${NODE_ENV:-development}
       LOG_LEVEL: ${LOG_LEVEL:-debug}
+      FILE_SERVICE_URL: ${FILE_SERVICE_URL:-http://localhost:6000}
+      FILE_SERVICE_TOKEN: ${INTERNAL_API_SECRET:-dev-internal-secret-at-least-32-chars}
       MONGODB_URI: ${MONGODB_URI:-mongodb://chat-mongo:27017/chat-service}
       REDIS_URL: ${REDIS_URL:-redis://chat-redis:6379}
       AUTH_JWT_VALIDATION_MODE: ${AUTH_JWT_VALIDATION_MODE:-symmetric}

@@ -355,4 +355,74 @@ describe('MessagesService', () => {
 
     await expect(service.hardDelete('missing')).rejects.toBeInstanceOf(NotFoundException);
   });
+
+  it('send with attachments calls commitFiles on FileServiceClient', async () => {
+    const model = createModel();
+    const conversationsService = createConversationService();
+    const usersService = createUsersService();
+    const conversationId = new Types.ObjectId().toString();
+
+    const conversation = {
+      participants: [{ externalUserId: 'user-1' }],
+    };
+
+    const message = makeMessageDoc({
+      senderId: 'user-1',
+      content: 'Hello with files',
+      attachments: [{ externalFileId: 'file-1' }, { externalFileId: 'file-2' }],
+    });
+
+    conversationsService.findById.mockResolvedValue(conversation);
+    model.create.mockResolvedValue(message);
+    usersService.findByExternalId.mockResolvedValue({
+      externalUserId: 'user-1',
+    });
+
+    const fileServiceClient = {
+      commitFiles: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const service = new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+      undefined,
+      undefined,
+      undefined,
+      fileServiceClient as any,
+    );
+
+    await service.send(conversationId, 'user-1', {
+      content: 'Hello with files',
+      attachments: [{ externalFileId: 'file-1' }, { externalFileId: 'file-2' }],
+    } as SendMessageDto);
+
+    expect(fileServiceClient.commitFiles).toHaveBeenCalledWith(['file-1', 'file-2']);
+  });
+
+  it('send with attachments throws InternalServerErrorException if FileServiceClient is not defined', async () => {
+    const model = createModel();
+    const conversationsService = createConversationService();
+    const usersService = createUsersService();
+    const conversationId = new Types.ObjectId().toString();
+
+    const conversation = {
+      participants: [{ externalUserId: 'user-1' }],
+    };
+
+    conversationsService.findById.mockResolvedValue(conversation);
+
+    const service = new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+    );
+
+    await expect(
+      service.send(conversationId, 'user-1', {
+        content: 'Hello with files',
+        attachments: [{ externalFileId: 'file-1' }],
+      } as SendMessageDto),
+    ).rejects.toThrow('File service is not configured.');
+  });
 });

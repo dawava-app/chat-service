@@ -5,7 +5,9 @@ import {
   NotFoundException,
   Inject,
   forwardRef,
+  InternalServerErrorException,
 } from '@nestjs/common';
+import { FileServiceClient } from './file-service.client';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { ConversationsService } from '../conversations/conversations.service';
@@ -76,6 +78,7 @@ export class MessagesService {
     @Inject(forwardRef(() => PresenceService))
     private readonly presenceService?: PresenceService,
     private readonly webhooksService?: WebhooksService,
+    private readonly fileServiceClient?: FileServiceClient,
   ) {}
 
   async send(
@@ -106,6 +109,14 @@ export class MessagesService {
       if (!parentMessage) {
         throw new BadRequestException('Reply target message not found');
       }
+    }
+
+    if (dto.attachments && dto.attachments.length > 0) {
+      if (!this.fileServiceClient) {
+        throw new InternalServerErrorException('File service is not configured.');
+      }
+      const fileIds = dto.attachments.map((att) => att.externalFileId);
+      await this.fileServiceClient.commitFiles(fileIds);
     }
 
     const message = await this.messageModel.create({

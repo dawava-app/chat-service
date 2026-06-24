@@ -45,4 +45,8 @@ export default () => ({
   cors: {
     origins: process.env.ALLOWED_ORIGINS?.split(',').map((origin) => origin.trim()) ?? [],
   },
+  fileService: {
+    url: process.env.FILE_SERVICE_URL,
+    token: process.env.FILE_SERVICE_TOKEN || process.env.INTERNAL_API_SECRET,
+  },
 });

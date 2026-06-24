@@ -7,6 +7,7 @@ import { PresenceModule } from '../presence/presence.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { MessagesController } from './messages.controller';
 import { MessagesService } from './messages.service';
+import { FileServiceClient } from './file-service.client';
 import { Message, MessageSchema } from './schemas/message.schema';
 
 @Module({
@@ -19,7 +20,7 @@ import { Message, MessageSchema } from './schemas/message.schema';
     MongooseModule.forFeature([{ name: Message.name, schema: MessageSchema }]),
   ],
   controllers: [MessagesController],
-  providers: [MessagesService],
+  providers: [MessagesService, FileServiceClient],
   exports: [MessagesService],
 })
 export class MessagesModule {}
