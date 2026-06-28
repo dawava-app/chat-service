@@ -25,7 +25,7 @@ export class FileServiceClient {
           'Content-Type': 'application/json',
           'x-service-token': this.token,
         },
-        body: JSON.stringify({ isPrivate: true }),
+        body: JSON.stringify({ isPrivate: false }),
       });
 
       if (!response.ok) {

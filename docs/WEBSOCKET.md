@@ -1,6 +1,6 @@
 # WebSocket Guide
 
-Default WebSocket URL (dev): `ws://localhost:3001`
+Default WebSocket URL (dev): `wss://api.dawava.me/ws`
 
 ## Authentication
 Provide JWT via:
@@ -18,13 +18,32 @@ The resolved value must be a non-empty string.
 ```javascript
 import { io } from 'socket.io-client';
 
-const socket = io('ws://localhost:3001', {
-  auth: { token: 'jwt' },
+const VALID_JWT_TOKEN = 'YOUR_ACTUAL_JWT_TOKEN_HERE'; 
+
+const socket = io('wss://api.dawava.me', {
+  path: '/ws/socket.io', 
+  auth: { 
+    token: VALID_JWT_TOKEN 
+  },
   transports: ['websocket', 'polling'],
 });
 
 socket.on('connected', (payload) => {
-  console.log('connected', payload);
+  console.log('✅ Successfully connected to server!', payload);
+  socket.emit('ping', {});
+});
+
+socket.on('error', (payload) => {
+  console.error('❌ Server returned an error:', payload);
+});
+
+// Standard Socket.IO client-side catch-alls
+socket.on('connect_error', (err) => {
+  console.error('🚨 Network connection failed:', err.message);
+});
+
+socket.on('disconnect', (reason) => {
+  console.log('🔌 Disconnected. Reason:', reason);
 });
 ```
 
