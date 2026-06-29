@@ -44,11 +44,11 @@ export class QueryMessagesDto {
   @IsMongoId()
   after?: string;
 
-  @ApiPropertyOptional({ default: false })
+  @ApiPropertyOptional({ default: true })
   @IsOptional()
   @Type(() => Boolean)
   @IsBoolean()
-  includeDeleted: boolean = false;
+  includeDeleted: boolean = true;
 
   @Validate(BeforeAfterConstraint)
   private readonly beforeAfter?: string;

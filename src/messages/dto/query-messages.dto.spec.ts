@@ -11,7 +11,7 @@ describe('QueryMessagesDto', () => {
 
     expect(errors).toHaveLength(0);
     expect(dto.limit).toBe(50);
-    expect(dto.includeDeleted).toBe(false);
+    expect(dto.includeDeleted).toBe(true);
   });
 
   it('rejects invalid before and after', async () => {
