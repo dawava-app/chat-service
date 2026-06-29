@@ -225,6 +225,15 @@ export class MessagesService {
       .limit(limit + 1)
       .lean();
 
+    if (query.includeDeleted) {
+      messages.forEach((message) => {
+        if (message.isDeleted) {
+          message.content = '';
+          message.attachments = [];
+        }
+      });
+    }
+
     const hasMore = messages.length > limit;
     if (hasMore) {
       messages = messages.slice(0, limit);
