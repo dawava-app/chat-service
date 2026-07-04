@@ -45,6 +45,20 @@ describe('MessagesService', () => {
     findManyByExternalIds: jest.fn(),
   });
 
+  const createService = (
+    model: ReturnType<typeof createModel>,
+    conversationsService: ReturnType<typeof createConversationService>,
+    usersService: ReturnType<typeof createUsersService>,
+    overrides: Partial<ConstructorParameters<typeof MessagesService>[7] extends infer T ? Record<string, T> : never> = {},
+  ) =>
+    new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+      undefined as any,
+      ...(Object.values(overrides) as any[]),
+    ) as MessagesService;
+
   it('send rejects non-participants', async () => {
     const model = createModel();
     const conversationsService = createConversationService();
@@ -57,6 +71,7 @@ describe('MessagesService', () => {
       model as any,
       conversationsService as any,
       usersService as any,
+      undefined as any,
     );
 
     await expect(
@@ -93,6 +108,7 @@ describe('MessagesService', () => {
       model as any,
       conversationsService as any,
       usersService as any,
+      undefined as any,
     );
 
     const result = await service.send(conversationId, 'user-1', {
@@ -133,6 +149,7 @@ describe('MessagesService', () => {
       model as any,
       conversationsService as any,
       usersService as any,
+      undefined as any,
     );
 
     await service.send(conversationId, 'user-1', {
@@ -167,6 +184,7 @@ describe('MessagesService', () => {
       model as any,
       conversationsService as any,
       usersService as any,
+      undefined as any,
     );
 
     const result = await service.createSystemMessage(conversationId, 'User joined');
@@ -205,6 +223,7 @@ describe('MessagesService', () => {
       model as any,
       conversationsService as any,
       usersService as any,
+      undefined as any,
     );
 
     const result = await service.findByConversation(conversationId, {
@@ -227,6 +246,7 @@ describe('MessagesService', () => {
       model as any,
       conversationsService as any,
       usersService as any,
+      undefined as any,
     );
 
     await expect(
@@ -247,6 +267,7 @@ describe('MessagesService', () => {
       model as any,
       conversationsService as any,
       usersService as any,
+      undefined as any,
     );
 
     const result = await service.delete('msg-1', 'user-1');
@@ -302,6 +323,7 @@ describe('MessagesService', () => {
       model as any,
       conversationsService as any,
       usersService as any,
+      undefined as any,
     );
 
     const result = await service.getContext(target._id.toString(), 1);
@@ -332,6 +354,7 @@ describe('MessagesService', () => {
       model as any,
       conversationsService as any,
       usersService as any,
+      undefined as any,
     );
 
     const populated = await service.populateMessageWithSender(message);
@@ -351,6 +374,7 @@ describe('MessagesService', () => {
       model as any,
       conversationsService as any,
       usersService as any,
+      undefined as any,
     );
 
     await expect(service.hardDelete('missing')).rejects.toBeInstanceOf(NotFoundException);
@@ -386,6 +410,7 @@ describe('MessagesService', () => {
       model as any,
       conversationsService as any,
       usersService as any,
+      undefined as any,
       undefined,
       undefined,
       undefined,
@@ -416,6 +441,7 @@ describe('MessagesService', () => {
       model as any,
       conversationsService as any,
       usersService as any,
+      undefined as any,
     );
 
     await expect(

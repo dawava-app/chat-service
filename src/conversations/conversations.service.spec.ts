@@ -30,10 +30,19 @@ describe('ConversationsService', () => {
     exists: jest.fn(),
   });
 
+  const createChatGateway = () => ({
+    notifyNewConversation: jest.fn().mockResolvedValue(undefined),
+    notifyParticipantAdded: jest.fn().mockResolvedValue(undefined),
+    notifyParticipantRemoved: jest.fn().mockResolvedValue(undefined),
+  });
+
   const createService = (model: ReturnType<typeof createModel>) =>
-    new ConversationsService(model as any, undefined, {
-      getUnreadCounts: jest.fn().mockResolvedValue(new Map()),
-    } as any);
+    new ConversationsService(
+      model as any,
+      undefined as any,
+      createChatGateway() as any,
+      { getUnreadCounts: jest.fn().mockResolvedValue(new Map()) } as any,
+    );
 
   it('creates a direct conversation with no roles', async () => {
     const model = createModel();
