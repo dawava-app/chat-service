@@ -49,7 +49,9 @@ describe('MessagesService', () => {
     model: ReturnType<typeof createModel>,
     conversationsService: ReturnType<typeof createConversationService>,
     usersService: ReturnType<typeof createUsersService>,
-    overrides: Partial<ConstructorParameters<typeof MessagesService>[7] extends infer T ? Record<string, T> : never> = {},
+    overrides: Partial<
+      ConstructorParameters<typeof MessagesService>[7] extends infer T ? Record<string, T> : never
+    > = {},
   ) =>
     new MessagesService(
       model as any,
