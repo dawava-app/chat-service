@@ -64,7 +64,11 @@ export class ConversationsService implements OnModuleInit {
     await this.conversationModel.syncIndexes();
   }
 
-  async create(userId: string, dto: CreateConversationDto, isChatbot: boolean = false): Promise<Conversation> {
+  async create(
+    userId: string,
+    dto: CreateConversationDto,
+    isChatbot: boolean = false,
+  ): Promise<Conversation> {
     // ── Chatbot conversation ────────────────────────────────────────────────
     if (isChatbot || dto.metadata?.['chatbot'] === true) {
       return this.createChatbotConversation(userId, dto);

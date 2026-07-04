@@ -48,9 +48,7 @@ export class ChatbotClient {
 
       if (!response.ok) {
         const body = await response.text().catch(() => '');
-        this.logger.error(
-          `ChatbotClient: request failed status=${response.status} body=${body}`,
-        );
+        this.logger.error(`ChatbotClient: request failed status=${response.status} body=${body}`);
         return null;
       }
 

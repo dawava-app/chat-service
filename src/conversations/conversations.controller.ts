@@ -75,11 +75,15 @@ export class ConversationsController {
   @Authorize({ jwt: true, internal: false })
   @ApiOperation({ summary: 'Create a chatbot conversation' })
   async createChatbot(@CurrentUser() user: AuthenticatedUser): Promise<ConversationWithProfiles> {
-    const conversation = await this.conversationsService.create(user.externalUserId, {
-      type: ConversationType.Direct,
-      name: 'Chatbot',
-      participantIds: [user.externalUserId]
-    }, true);
+    const conversation = await this.conversationsService.create(
+      user.externalUserId,
+      {
+        type: ConversationType.Direct,
+        name: 'Chatbot',
+        participantIds: [user.externalUserId],
+      },
+      true,
+    );
     return this.attachProfilesToConversation(conversation);
   }
 

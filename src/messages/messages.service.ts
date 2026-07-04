@@ -488,7 +488,9 @@ export class MessagesService {
       this.chatGateway?.emitToConversation(conversationId, 'message:new', botPopulated);
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      this.logger.error(`handleChatbotReply failed for conversationId=${conversationId}: ${message}`);
+      this.logger.error(
+        `handleChatbotReply failed for conversationId=${conversationId}: ${message}`,
+      );
     }
   }
 
