@@ -9,6 +9,7 @@ export interface ChatbotMessage {
 export interface ChatbotRequest {
   user_id: string;
   session_id: string;
+  query: string;
   messages: ChatbotMessage[];
 }
 

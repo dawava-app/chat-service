@@ -445,11 +445,13 @@ export class MessagesService {
     try {
       const botUserId = this.configService.get<string>('chatbot.botUserId') ?? 'bot';
 
-      // Fetch all non-deleted messages oldest-first
+      // Fetch the most recent 1000 non-deleted messages oldest-first
       const rawMessages = await this.messageModel
         .find({ conversationId: new Types.ObjectId(conversationId), isDeleted: false })
-        .sort({ _id: 1 })
-        .lean();
+        .sort({ _id: -1 })
+        .limit(1000)
+        .lean()
+        .then((msgs) => msgs.reverse());
 
       // Map to chatbot message format
       const chatMessages: ChatbotMessage[] = rawMessages.map((m) => ({
@@ -459,9 +461,14 @@ export class MessagesService {
 
       if (!chatMessages.length) return;
 
+      // The query is the last human message in the history
+      const lastHuman = [...chatMessages].reverse().find((m) => m.role === 'human');
+      if (!lastHuman) return;
+
       const response = await this.chatbotClient?.chat({
         user_id: humanSenderId,
         session_id: conversationId,
+        query: lastHuman.content,
         messages: chatMessages,
       });
 
