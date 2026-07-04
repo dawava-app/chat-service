@@ -2,11 +2,14 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
   Inject,
   forwardRef,
   InternalServerErrorException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { ChatbotClient, ChatbotMessage } from './chatbot-client';
 import { FileServiceClient } from './file-service.client';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
@@ -68,17 +71,21 @@ export interface MessagesPage {
 
 @Injectable()
 export class MessagesService {
+  private readonly logger = new Logger(MessagesService.name);
+
   constructor(
     @InjectModel(Message.name)
     private readonly messageModel: Model<MessageDocument>,
     private readonly conversationsService: ConversationsService,
     private readonly usersService: UsersService,
+    private readonly configService: ConfigService,
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway?: ChatGateway,
     @Inject(forwardRef(() => PresenceService))
     private readonly presenceService?: PresenceService,
     private readonly webhooksService?: WebhooksService,
     private readonly fileServiceClient?: FileServiceClient,
+    private readonly chatbotClient?: ChatbotClient,
   ) {}
 
   async send(
@@ -139,6 +146,10 @@ export class MessagesService {
     const populatedForSender = await this.populateMessageWithSender(message, senderId);
     const broadcastPayload = await this.populateMessageWithSender(message);
     this.chatGateway?.emitToConversation(conversationId, 'message:new', broadcastPayload);
+
+    if (conversation.metadata?.['chatbot'] === true) {
+      void this.handleChatbotReply(conversationId, senderId);
+    }
     await this.webhooksService?.emitEvent(WebhookEventType.MESSAGE_CREATED, {
       messageId: message._id.toString(),
       conversationId,
@@ -410,6 +421,66 @@ export class MessagesService {
         sender: profile ? { displayName: profile.displayName } : null,
       },
     };
+  }
+
+  // ---------------------------------------------------------------------------
+  // Chatbot orchestration
+  // ---------------------------------------------------------------------------
+
+  /**
+   * Fetches the full conversation history, calls the chatbot service, and
+   * saves the AI reply as a regular message (senderId = botUserId).
+   * All errors are caught and logged silently.
+   */
+  private async handleChatbotReply(conversationId: string, humanSenderId: string): Promise<void> {
+    try {
+      const botUserId = this.configService.get<string>('chatbot.botUserId') ?? 'bot';
+
+      // Fetch all non-deleted messages oldest-first
+      const rawMessages = await this.messageModel
+        .find({ conversationId: new Types.ObjectId(conversationId), isDeleted: false })
+        .sort({ _id: 1 })
+        .lean();
+
+      // Map to chatbot message format
+      const chatMessages: ChatbotMessage[] = rawMessages.map((m) => ({
+        role: m.senderId === botUserId ? 'ai' : 'human',
+        content: m.content,
+      }));
+
+      if (!chatMessages.length) return;
+
+      const response = await this.chatbotClient?.chat({
+        user_id: humanSenderId,
+        session_id: conversationId,
+        messages: chatMessages,
+      });
+
+      if (!response?.answer) return;
+
+      // Save the bot reply
+      const botMessage = await this.messageModel.create({
+        conversationId: new Types.ObjectId(conversationId),
+        senderId: botUserId,
+        content: response.answer,
+        type: MessageType.Text,
+        attachments: [],
+        metadata: { chatbot: true },
+      });
+
+      await this.conversationsService.updateLastMessage(conversationId, {
+        messageId: botMessage._id.toString(),
+        content: this.truncateContent(botMessage.content, 10000),
+        senderId: botMessage.senderId,
+        sentAt: botMessage.createdAt ?? new Date(),
+      });
+
+      const botPopulated = await this.populateMessageWithSender(botMessage);
+      this.chatGateway?.emitToConversation(conversationId, 'message:new', botPopulated);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      this.logger.error(`handleChatbotReply failed for conversationId=${conversationId}: ${message}`);
+    }
   }
 
   private truncateContent(content: string, maxLength: number = 100): string {

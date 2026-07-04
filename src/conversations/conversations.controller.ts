@@ -71,6 +71,18 @@ export class ConversationsController {
     };
   }
 
+  @Post('chatbot')
+  @Authorize({ jwt: true, internal: false })
+  @ApiOperation({ summary: 'Create a chatbot conversation' })
+  async createChatbot(@CurrentUser() user: AuthenticatedUser): Promise<ConversationWithProfiles> {
+    const conversation = await this.conversationsService.create(user.externalUserId, {
+      type: ConversationType.Direct,
+      name: 'Chatbot',
+      participantIds: [user.externalUserId]
+    }, true);
+    return this.attachProfilesToConversation(conversation);
+  }
+
   @Get(':id')
   @ApiOperation({ summary: 'Get a conversation by id' })
   async findOne(

@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import { ConfigService } from '@nestjs/config';
 import { CreateConversationDto } from './dto/create-conversation.dto';
 import { AddParticipantDto } from './dto/add-participant.dto';
 import { UpdateParticipantRoleDto } from './dto/update-participant-role.dto';
@@ -51,6 +52,7 @@ export class ConversationsService implements OnModuleInit {
   constructor(
     @InjectModel(Conversation.name)
     private readonly conversationModel: Model<ConversationDocument>,
+    private readonly configService: ConfigService,
     @Inject(forwardRef(() => ChatGateway))
     private readonly chatGateway?: ChatGateway,
     @Inject(forwardRef(() => ReadReceiptsService))
@@ -62,7 +64,13 @@ export class ConversationsService implements OnModuleInit {
     await this.conversationModel.syncIndexes();
   }
 
-  async create(userId: string, dto: CreateConversationDto): Promise<Conversation> {
+  async create(userId: string, dto: CreateConversationDto, isChatbot: boolean = false): Promise<Conversation> {
+    // ── Chatbot conversation ────────────────────────────────────────────────
+    if (isChatbot || dto.metadata?.['chatbot'] === true) {
+      return this.createChatbotConversation(userId, dto);
+    }
+
+    // ── Regular conversation ────────────────────────────────────────────────
     if (!dto.participantIds.includes(userId)) {
       throw new BadRequestException('participantIds must include the current user');
     }
@@ -556,6 +564,46 @@ export class ConversationsService implements OnModuleInit {
       .select({ participants: 1 })
       .lean();
     return conversation?.participants?.length ?? 0;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Chatbot conversation creation
+  // ---------------------------------------------------------------------------
+
+  private async createChatbotConversation(
+    userId: string,
+    dto: CreateConversationDto,
+  ): Promise<Conversation> {
+    const botUserId = this.configService.get<string>('chatbot.botUserId') ?? 'bot';
+
+    // Build the participant list: human + bot (deduplicated)
+    const participantIds = this.normalizeParticipantIds([userId, botUserId]);
+
+    const joinedAt = new Date();
+    const participants: Participant[] = participantIds.map((externalUserId) => ({
+      externalUserId,
+      joinedAt,
+    }));
+
+    const payload: Partial<Conversation> = {
+      type: dto.type ?? ConversationType.Direct,
+      name: dto.name,
+      participants,
+      participantIds,
+      metadata: { ...(dto.metadata ?? {}), chatbot: true },
+      createdBy: userId,
+    };
+
+    const created = await this.conversationModel.create(payload);
+    await this.chatGateway?.notifyNewConversation(created._id.toString(), created.participantIds);
+    await this.webhooksService?.emitEvent(WebhookEventType.CONVERSATION_CREATED, {
+      conversationId: created._id.toString(),
+      type: created.type,
+      participantIds: created.participantIds,
+      createdBy: created.createdBy,
+      createdAt: created.createdAt ?? new Date(),
+    });
+    return created.toObject({ getters: true, virtuals: false });
   }
 
   private async ensureConversation(conversationId: string): Promise<ConversationDocument> {

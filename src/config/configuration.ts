@@ -49,4 +49,8 @@ export default () => ({
     url: process.env.FILE_SERVICE_URL,
     token: process.env.FILE_SERVICE_TOKEN || process.env.INTERNAL_API_SECRET,
   },
+  chatbot: {
+    url: process.env.CHATBOT_SERVICE_URL,
+    botUserId: process.env.CHATBOT_BOT_USER_ID ?? 'bot',
+  },
 });
