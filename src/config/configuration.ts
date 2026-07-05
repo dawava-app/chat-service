@@ -51,6 +51,7 @@ export default () => ({
   },
   chatbot: {
     url: process.env.CHATBOT_SERVICE_URL,
+    token: process.env.CHATBOT_SERVICE_TOKEN || process.env.INTERNAL_API_SECRET,
     botUserId: process.env.CHATBOT_BOT_USER_ID ?? 'bot',
   },
 });

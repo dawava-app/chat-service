@@ -42,4 +42,6 @@ export const validationSchema = Joi.object({
   ALLOWED_ORIGINS: Joi.string().optional(),
   FILE_SERVICE_URL: Joi.string().uri().optional(),
   FILE_SERVICE_TOKEN: Joi.string().min(32).optional(),
+  CHATBOT_SERVICE_URL: Joi.string().uri().optional(),
+  CHATBOT_SERVICE_TOKEN: Joi.string().min(32).optional(),
 });

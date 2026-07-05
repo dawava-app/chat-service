@@ -21,9 +21,11 @@ export interface ChatbotResponse {
 export class ChatbotClient {
   private readonly logger = new Logger(ChatbotClient.name);
   private readonly baseUrl: string;
+  private readonly token: string;
 
   constructor(private readonly configService: ConfigService) {
     this.baseUrl = this.configService.get<string>('chatbot.url') ?? '';
+    this.token = this.configService.get<string>('chatbot.token') ?? '';
   }
 
   /**
@@ -43,7 +45,10 @@ export class ChatbotClient {
       const url = `${this.baseUrl}/chat`;
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-service-token': this.token,
+        },
         body: JSON.stringify(payload),
       });
 
