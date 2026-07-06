@@ -465,12 +465,35 @@ export class MessagesService {
       const lastHuman = [...chatMessages].reverse().find((m) => m.role === 'human');
       if (!lastHuman) return;
 
-      const response = await this.chatbotClient?.chat({
-        user_id: humanSenderId,
-        session_id: conversationId,
-        query: lastHuman.content,
-        messages: chatMessages,
+      // Signal that the bot is "typing" while waiting for the AI response
+      await this.presenceService?.setTyping(conversationId, botUserId);
+      this.chatGateway?.emitToConversation(conversationId, 'user:typing', {
+        conversationId,
+        userId: botUserId,
+        type: 'typing',
+        isActive: true,
+        timestamp: new Date().toISOString(),
       });
+
+      let response: Awaited<ReturnType<NonNullable<typeof this.chatbotClient>['chat']>> | undefined;
+      try {
+        response = await this.chatbotClient?.chat({
+          user_id: humanSenderId,
+          session_id: conversationId,
+          query: lastHuman.content,
+          messages: chatMessages,
+        });
+      } finally {
+        // Always clear the typing indicator once the AI call settles
+        await this.presenceService?.stopTyping(conversationId, botUserId);
+        this.chatGateway?.emitToConversation(conversationId, 'user:typing', {
+          conversationId,
+          userId: botUserId,
+          type: 'typing',
+          isActive: false,
+          timestamp: new Date().toISOString(),
+        });
+      }
 
       if (!response?.answer) return;
 
