@@ -143,6 +143,14 @@ export class ConversationsService implements OnModuleInit {
       }
     }
 
+    if (query.chatbot !== undefined) {
+      if (query.chatbot === true) {
+        filter['metadata.chatbot'] = true;
+      } else {
+        filter['metadata.chatbot'] = { $ne: true };
+      }
+    }
+
     if (query.cursor) {
       const cursor = this.decodeCursor(query.cursor);
       const cursorDate = new Date(cursor.updatedAt);

@@ -47,4 +47,34 @@ describe('QueryConversationsDto', () => {
     expect(errors).toHaveLength(0);
     expect(dto.with).toEqual(['user-2', 'user-3']);
   });
+
+  it('accepts valid chatbot values', async () => {
+    const dtoTrue = plainToInstance(QueryConversationsDto, { chatbot: true });
+    const errorsTrue = await validate(dtoTrue);
+    expect(errorsTrue).toHaveLength(0);
+    expect(dtoTrue.chatbot).toBe(true);
+
+    const dtoFalse = plainToInstance(QueryConversationsDto, { chatbot: false });
+    const errorsFalse = await validate(dtoFalse);
+    expect(errorsFalse).toHaveLength(0);
+    expect(dtoFalse.chatbot).toBe(false);
+  });
+
+  it('transforms chatbot string values to booleans', async () => {
+    const dtoTrueStr = plainToInstance(QueryConversationsDto, { chatbot: 'true' });
+    const errorsTrueStr = await validate(dtoTrueStr);
+    expect(errorsTrueStr).toHaveLength(0);
+    expect(dtoTrueStr.chatbot).toBe(true);
+
+    const dtoFalseStr = plainToInstance(QueryConversationsDto, { chatbot: 'false' });
+    const errorsFalseStr = await validate(dtoFalseStr);
+    expect(errorsFalseStr).toHaveLength(0);
+    expect(dtoFalseStr.chatbot).toBe(false);
+  });
+
+  it('rejects invalid chatbot values', async () => {
+    const dto = plainToInstance(QueryConversationsDto, { chatbot: 'not-a-boolean' });
+    const errors = await validate(dto);
+    expect(errors.length).toBeGreaterThan(0);
+  });
 });

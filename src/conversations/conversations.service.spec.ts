@@ -12,7 +12,7 @@ const createDoc = (overrides: Record<string, unknown> = {}) => {
     participantIds: [],
     save: jest.fn().mockResolvedValue(undefined),
     deleteOne: jest.fn().mockResolvedValue(undefined),
-    toObject: jest.fn().mockImplementation(function () {
+    toObject: jest.fn().mockImplementation(function (this: any) {
       return { ...this };
     }),
     ...overrides,
@@ -261,6 +261,56 @@ describe('ConversationsService', () => {
         'participants.externalUserId': 'user-1',
         type: ConversationType.Direct,
         participantIds: { $in: ['user-2', 'user-3'] },
+      }),
+    );
+  });
+
+  it('filters conversations by chatbot = true', async () => {
+    const model = createModel();
+    const service = createService(model);
+
+    const queryChain = {
+      sort: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue([]),
+    };
+
+    model.find.mockReturnValue(queryChain);
+
+    await service.findAllForUser('user-1', {
+      limit: 10,
+      chatbot: true,
+    } as any);
+
+    expect(model.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        'participants.externalUserId': 'user-1',
+        'metadata.chatbot': true,
+      }),
+    );
+  });
+
+  it('filters conversations by chatbot = false', async () => {
+    const model = createModel();
+    const service = createService(model);
+
+    const queryChain = {
+      sort: jest.fn().mockReturnThis(),
+      limit: jest.fn().mockReturnThis(),
+      exec: jest.fn().mockResolvedValue([]),
+    };
+
+    model.find.mockReturnValue(queryChain);
+
+    await service.findAllForUser('user-1', {
+      limit: 10,
+      chatbot: false,
+    } as any);
+
+    expect(model.find).toHaveBeenCalledWith(
+      expect.objectContaining({
+        'participants.externalUserId': 'user-1',
+        'metadata.chatbot': { $ne: true },
       }),
     );
   });
