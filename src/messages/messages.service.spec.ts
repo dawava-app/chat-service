@@ -427,6 +427,55 @@ describe('MessagesService', () => {
     expect(fileServiceClient.commitFiles).toHaveBeenCalledWith(['file-1', 'file-2']);
   });
 
+  it('send with attachments and without content defaults to empty string content', async () => {
+    const model = createModel();
+    const conversationsService = createConversationService();
+    const usersService = createUsersService();
+    const conversationId = new Types.ObjectId().toString();
+
+    const conversation = {
+      participants: [{ externalUserId: 'user-1' }],
+    };
+
+    const message = makeMessageDoc({
+      senderId: 'user-1',
+      content: '',
+      attachments: [{ externalFileId: 'file-1' }],
+    });
+
+    conversationsService.findById.mockResolvedValue(conversation);
+    model.create.mockResolvedValue(message);
+    usersService.findByExternalId.mockResolvedValue({
+      externalUserId: 'user-1',
+    });
+
+    const fileServiceClient = {
+      commitFiles: jest.fn().mockResolvedValue(undefined),
+    };
+
+    const service = new MessagesService(
+      model as any,
+      conversationsService as any,
+      usersService as any,
+      undefined as any,
+      undefined,
+      undefined,
+      undefined,
+      fileServiceClient as any,
+    );
+
+    await service.send(conversationId, 'user-1', {
+      attachments: [{ externalFileId: 'file-1' }],
+    } as SendMessageDto);
+
+    expect(model.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: '',
+        attachments: [{ externalFileId: 'file-1' }],
+      }),
+    );
+  });
+
   it('send with attachments throws InternalServerErrorException if FileServiceClient is not defined', async () => {
     const model = createModel();
     const conversationsService = createConversationService();

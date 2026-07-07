@@ -39,8 +39,8 @@ export class Message {
   @Prop({ required: true, index: true })
   senderId!: string;
 
-  @Prop({ required: true })
-  content!: string;
+  @Prop({ required: false })
+  content?: string;
 
   @Prop({ enum: MessageType, default: MessageType.Text })
   type!: MessageType;

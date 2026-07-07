@@ -129,7 +129,7 @@ export class MessagesService {
     const message = await this.messageModel.create({
       conversationId: new Types.ObjectId(conversationId),
       senderId,
-      content: dto.content,
+      content: dto.content ?? '',
       type: MessageType.Text,
       attachments: dto.attachments ?? [],
       replyTo: dto.replyTo ? new Types.ObjectId(dto.replyTo) : undefined,
@@ -456,7 +456,7 @@ export class MessagesService {
       // Map to chatbot message format
       const chatMessages: ChatbotMessage[] = rawMessages.map((m) => ({
         role: m.senderId === botUserId ? 'ai' : 'human',
-        content: m.content,
+        content: m.content ?? '',
       }));
 
       if (!chatMessages.length) return;
@@ -480,7 +480,7 @@ export class MessagesService {
         response = await this.chatbotClient?.chat({
           user_id: humanSenderId,
           session_id: conversationId,
-          query: lastHuman.content,
+          query: lastHuman.content ?? '',
           messages: chatMessages,
         });
       } finally {
@@ -524,7 +524,10 @@ export class MessagesService {
     }
   }
 
-  private truncateContent(content: string, maxLength: number = 100): string {
+  private truncateContent(content?: string, maxLength: number = 100): string {
+    if (!content) {
+      return '';
+    }
     if (content.length <= maxLength) {
       return content;
     }

@@ -13,6 +13,7 @@ import {
   ValidatorConstraint,
   ValidatorConstraintInterface,
   ValidationArguments,
+  ValidateIf,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -50,11 +51,12 @@ class ContentOrAttachmentsConstraint implements ValidatorConstraintInterface {
 }
 
 export class SendMessageDto {
-  @ApiProperty({ example: 'Hello there', maxLength: 5000 })
+  @ApiPropertyOptional({ example: 'Hello there', maxLength: 5000 })
+  @ValidateIf((o: SendMessageDto) => o.content !== undefined || !o.attachments || o.attachments.length === 0)
   @IsString()
   @MaxLength(5000)
   @Validate(ContentOrAttachmentsConstraint)
-  content!: string;
+  content?: string;
 
   @ApiPropertyOptional({ type: [AttachmentDto] })
   @IsOptional()
