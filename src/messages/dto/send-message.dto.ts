@@ -52,7 +52,9 @@ class ContentOrAttachmentsConstraint implements ValidatorConstraintInterface {
 
 export class SendMessageDto {
   @ApiPropertyOptional({ example: 'Hello there', maxLength: 5000 })
-  @ValidateIf((o: SendMessageDto) => o.content !== undefined || !o.attachments || o.attachments.length === 0)
+  @ValidateIf(
+    (o: SendMessageDto) => o.content !== undefined || !o.attachments || o.attachments.length === 0,
+  )
   @IsString()
   @MaxLength(5000)
   @Validate(ContentOrAttachmentsConstraint)
